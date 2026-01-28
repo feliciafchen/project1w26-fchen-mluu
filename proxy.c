@@ -249,6 +249,7 @@ void send_local_file(SSL *ssl, const char *path)
     while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0)
     {
         // TODO: Send file data via SSL
+        SSL_write(ssl, buffer, bytes_read);
     }
 
     fclose(file);
@@ -286,6 +287,7 @@ void proxy_remote_file(SSL *ssl, const char *request)
     while ((bytes_read = recv(remote_socket, buffer, sizeof(buffer), 0)) > 0)
     {
         // TODO: Forward response to client via SSL
+        SSL_write(ssl, buffer, bytes_read);
     }
 
     close(remote_socket);
