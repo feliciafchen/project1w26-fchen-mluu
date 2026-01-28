@@ -241,7 +241,17 @@ void send_local_file(SSL *ssl, const char *path)
     else if (strstr(path, ".jpg"))
     {
         response = "HTTP/1.1 200 OK\r\n"
-                   "Content-Type: text/plain; charset=UTF-8\r\n\r\n";
+                   "Content-Type: image/jpeg; charset=UTF-8\r\n\r\n";
+    }
+    else if (strstr(path, ".m3u8"))
+    {
+        response = "HTTP/1.1 200 OK\r\n"
+                   "Content-Type: application/x-mpegURL;\r\n\r\n";
+    }
+    else
+    {
+        response = "HTTP/1.1 200 OK\r\n"
+                   "Content-Type: text/plain;\r\n\r\n";
     }
 
     // TODO: Send response header and file content via SSL
@@ -249,6 +259,7 @@ void send_local_file(SSL *ssl, const char *path)
     while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0)
     {
         // TODO: Send file data via SSL
+        SSL_write(ssl, buffer, bytes_read);
     }
 
     fclose(file);
@@ -285,7 +296,7 @@ void proxy_remote_file(SSL *ssl, const char *request)
 
     while ((bytes_read = recv(remote_socket, buffer, sizeof(buffer), 0)) > 0)
     {
-        // TODO: Forward response to client via SSL
+        SSL_write(ssl, buffer, bytes_read);
     }
 
     close(remote_socket);
