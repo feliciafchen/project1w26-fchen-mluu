@@ -174,6 +174,27 @@ int file_exists(const char *filename)
 
 // TODO: Parse HTTP request, extract file path, and route to appropriate handler
 // Consider: URL decoding, default files, routing logic for different file types
+void decode_url(char *encoded, char *decoded) 
+{
+    // %XX to byte --> %20 is space
+    while(*encoded)
+    {
+        if(*encoded == '%' && encoded[1] && encoded[2])
+        {
+            // if first character is % it's encoded
+            // convert hex to byte
+            char hex[3] = { encoded[1], encoded[2], '\0'};
+            *decoded++ = (char)strtol(hex, NULL, 16);
+            encoded += 3;
+        }
+        else
+        {
+            *decoded++ = *encoded++;
+        }
+    }
+    *decoded = '\0';
+}
+
 void handle_request(SSL *ssl, const char *remote_host, int remote_port)
 {
     char buffer[BUFFER_SIZE];
@@ -194,20 +215,24 @@ void handle_request(SSL *ssl, const char *remote_host, int remote_port)
     char *method = strtok(request, " ");
     char *file_name = strtok(NULL, " ");
     file_name++;
-    if (strlen(file_name) == 0)
+
+    char decoded_path[BUFFER_SIZE];
+    decode_url(decoded_path, file_name);
+
+    if (strlen(decoded_path) == 0)
     {
-        strcat(file_name, "index.html");
+        strcat(decoded_path, "index.html");
     }
     char *http_version = strtok(NULL, " ");
 
-    if (file_exists(file_name))
+    if (file_exists(decoded_path))
     {
-        printf("Sending local file %s\n", file_name);
-        send_local_file(ssl, file_name);
+        printf("Sending local file %s\n", decoded_path);
+        send_local_file(ssl, decoded_path);
     }
     else
     {
-        printf("Proxying remote file %s\n", file_name);
+        printf("Proxying remote file %s\n", decoded_path);
         proxy_remote_file(ssl, buffer, remote_host, remote_port);
     }
 
@@ -276,7 +301,6 @@ void send_local_file(SSL *ssl, const char *path)
 // TODO: Forward request to backend server and relay response to client
 // Handle connection failures appropriately
 void proxy_remote_file(SSL *ssl, const char *request, const char *remote_host, int remote_port)
-
 {
     int remote_socket;
     struct sockaddr_in remote_addr;
