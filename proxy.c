@@ -179,7 +179,7 @@ void handle_request(SSL *ssl)
     ssize_t bytes_read;
 
     // TODO: Read request from SSL connection
-    bytes_read = 0;
+    bytes_read = SSL_read(ssl, buffer, BUFFER_SIZE - 1);
 
     if (bytes_read <= 0)
     {
