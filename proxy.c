@@ -52,6 +52,7 @@ void parse_args(int argc, char *argv[], int *local_p, char **remote_h, int *remo
 
 int main(int argc, char *argv[])
 {
+    SSL_load_error_strings();
     int server_socket, client_socket;
     struct sockaddr_in server_addr, client_addr;
     socklen_t client_len;
@@ -73,6 +74,7 @@ int main(int argc, char *argv[])
     if (ssl_ctx == NULL)
     {
         fprintf(stderr, "Error: SSL context not initialized\n");
+        ERR_print_errors_fp(stderr);
         exit(EXIT_FAILURE);
     }
     if (SSL_CTX_use_certificate_file(ssl_ctx, "server.crt", SSL_FILETYPE_PEM) != 1)
@@ -154,6 +156,7 @@ int main(int argc, char *argv[])
     close(server_socket);
     // TODO: Clean up SSL context
     SSL_CTX_free(ssl_ctx);
+    ERR_print_errors_fp(stderr);
     return 0;
 }
 
