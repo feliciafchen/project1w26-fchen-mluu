@@ -12,9 +12,9 @@
 #define REMOTE_HOST "127.0.0.1"
 #define REMOTE_PORT 5001
 
-void handle_request(SSL *ssl);
+void handle_request(SSL *ssl, const char *remote_host, int remote_port);
 void send_local_file(SSL *ssl, const char *path);
-void proxy_remote_file(SSL *ssl, const char *request);
+void proxy_remote_file(SSL *ssl, const char *request, const char *remote_host, int remote_port);
 int file_exists(const char *filename);
 
 // TODO: Parse command-line arguments (-b/-r/-p) and override defaults.
@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
 
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = INADDR_ANY;
-    server_addr.sin_port = htons(LOCAL_PORT_TO_CLIENT);
+    server_addr.sin_port = htons(local_port);
 
     if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1)
     {
@@ -121,10 +121,11 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    printf("Proxy server listening on port %d\n", LOCAL_PORT_TO_CLIENT);
+    printf("Proxy server listening on port %d\n", local_port);
 
     while (1)
     {
+        client_len = sizeof(client_addr);
         client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_len);
         if (client_socket == -1)
         {
@@ -144,7 +145,7 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        handle_request(ssl);
+        handle_request(ssl, remote_host, remote_port);
 
         // Clean up SSL connection
         SSL_shutdown(ssl);
@@ -173,7 +174,7 @@ int file_exists(const char *filename)
 
 // TODO: Parse HTTP request, extract file path, and route to appropriate handler
 // Consider: URL decoding, default files, routing logic for different file types
-void handle_request(SSL *ssl)
+void handle_request(SSL *ssl, const char *remote_host, int remote_port)
 {
     char buffer[BUFFER_SIZE];
     ssize_t bytes_read;
@@ -207,7 +208,7 @@ void handle_request(SSL *ssl)
     else
     {
         printf("Proxying remote file %s\n", file_name);
-        proxy_remote_file(ssl, buffer);
+        proxy_remote_file(ssl, buffer, remote_host, remote_port);
     }
 
     free(request);
@@ -240,20 +241,25 @@ void send_local_file(SSL *ssl, const char *path)
         response = "HTTP/1.1 200 OK\r\n"
                    "Content-Type: text/html; charset=UTF-8\r\n\r\n";
     }
+    else if (strstr(path, ".txt"))
+    {
+        response = "HTTP/1.1 200 OK\r\n"
+                   "Content-Type: text/plain; charset=UTF-8\r\n\r\n";
+    }
     else if (strstr(path, ".jpg"))
     {
         response = "HTTP/1.1 200 OK\r\n"
-                   "Content-Type: image/jpeg; charset=UTF-8\r\n\r\n";
+                   "Content-Type: image/jpeg\r\n\r\n";
     }
     else if (strstr(path, ".m3u8"))
     {
         response = "HTTP/1.1 200 OK\r\n"
-                   "Content-Type: application/x-mpegURL;\r\n\r\n";
+                   "Content-Type: application/vnd.apple.mpegurl\r\n\r\n";
     }
     else
     {
         response = "HTTP/1.1 200 OK\r\n"
-                   "Content-Type: text/plain;\r\n\r\n";
+                   "Content-Type: application/octet-stream\r\n\r\n";
     }
 
     // TODO: Send response header and file content via SSL
@@ -269,7 +275,8 @@ void send_local_file(SSL *ssl, const char *path)
 
 // TODO: Forward request to backend server and relay response to client
 // Handle connection failures appropriately
-void proxy_remote_file(SSL *ssl, const char *request)
+void proxy_remote_file(SSL *ssl, const char *request, const char *remote_host, int remote_port)
+
 {
     int remote_socket;
     struct sockaddr_in remote_addr;
@@ -284,8 +291,8 @@ void proxy_remote_file(SSL *ssl, const char *request)
     }
 
     remote_addr.sin_family = AF_INET;
-    inet_pton(AF_INET, REMOTE_HOST, &remote_addr.sin_addr);
-    remote_addr.sin_port = htons(REMOTE_PORT);
+    inet_pton(AF_INET, remote_host, &remote_addr.sin_addr);
+    remote_addr.sin_port = htons(remote_port);
 
     if (connect(remote_socket, (struct sockaddr *)&remote_addr, sizeof(remote_addr)) == -1)
     {
