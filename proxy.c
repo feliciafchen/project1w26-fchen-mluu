@@ -19,10 +19,33 @@ int file_exists(const char *filename);
 
 // TODO: Parse command-line arguments (-b/-r/-p) and override defaults.
 // Keep behavior consistent with the project spec.
-void parse_args(int argc, char *argv[])
+void parse_args(int argc, char *argv[], int *local_p, char ** remote_h, int *remote_p)
 {
     (void)argc;
     (void)argv;
+
+    int opt;
+
+    // All options are optional
+    // -b -> local port
+    // -r -> remote host
+    // -p -> remote port
+
+    while((opt = getopt(argc, argv, "b:r:p:")) != -1) {
+        switch(opt) {
+            case 'b':
+                *local_p = atoi(optarg);
+                break;
+            case 'r':
+                *remote_h = optarg;
+                break;
+            case 'p':
+                *remote_p = atoi(optarg);
+                break;
+            case '?':
+                exit();
+        }
+    }
 }
 
 int main(int argc, char *argv[])
@@ -31,7 +54,11 @@ int main(int argc, char *argv[])
     struct sockaddr_in server_addr, client_addr;
     socklen_t client_len;
 
-    parse_args(argc, argv);
+    int local_port = 8443;
+    char* remote_host = "127.0.0.1";
+    int remote_port = 5001;
+
+    parse_args(argc, argv, &local_port, &remote_host, &remote_port);
 
     // TODO: Initialize OpenSSL library
     OPENSSL_init_ssl(0, NULL);
