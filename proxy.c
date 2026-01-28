@@ -19,7 +19,7 @@ int file_exists(const char *filename);
 
 // TODO: Parse command-line arguments (-b/-r/-p) and override defaults.
 // Keep behavior consistent with the project spec.
-void parse_args(int argc, char *argv[], int *local_p, char ** remote_h, int *remote_p)
+void parse_args(int argc, char *argv[], int *local_p, char **remote_h, int *remote_p)
 {
     (void)argc;
     (void)argv;
@@ -31,19 +31,21 @@ void parse_args(int argc, char *argv[], int *local_p, char ** remote_h, int *rem
     // -r -> remote host
     // -p -> remote port
 
-    while((opt = getopt(argc, argv, "b:r:p:")) != -1) {
-        switch(opt) {
-            case 'b':
-                *local_p = atoi(optarg);
-                break;
-            case 'r':
-                *remote_h = optarg;
-                break;
-            case 'p':
-                *remote_p = atoi(optarg);
-                break;
-            case '?':
-                exit();
+    while ((opt = getopt(argc, argv, "b:r:p:")) != -1)
+    {
+        switch (opt)
+        {
+        case 'b':
+            *local_p = atoi(optarg);
+            break;
+        case 'r':
+            *remote_h = optarg;
+            break;
+        case 'p':
+            *remote_p = atoi(optarg);
+            break;
+        case '?':
+            exit(EXIT_FAILURE);
         }
     }
 }
@@ -55,7 +57,7 @@ int main(int argc, char *argv[])
     socklen_t client_len;
 
     int local_port = 8443;
-    char* remote_host = "127.0.0.1";
+    char *remote_host = "127.0.0.1";
     int remote_port = 5001;
 
     parse_args(argc, argv, &local_port, &remote_host, &remote_port);
@@ -71,6 +73,23 @@ int main(int argc, char *argv[])
     if (ssl_ctx == NULL)
     {
         fprintf(stderr, "Error: SSL context not initialized\n");
+        exit(EXIT_FAILURE);
+    }
+    if (SSL_CTX_use_certificate_file(ssl_ctx, "server.crt", SSL_FILETYPE_PEM) != 1)
+    {
+        fprintf(stderr, "Error: failed to load certificate\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (SSL_CTX_use_PrivateKey_file(ssl_ctx, "server.key", SSL_FILETYPE_PEM) != 1)
+    {
+        fprintf(stderr, "Error: failed to load private key\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (SSL_CTX_check_private_key(ssl_ctx) != 1)
+    {
+        fprintf(stderr, "Error: private key does not match certificate\n");
         exit(EXIT_FAILURE);
     }
 
@@ -113,22 +132,28 @@ int main(int argc, char *argv[])
 
         printf("Accepted connection from %s:%d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
 
-        // TODO: Create SSL structure for this connection and perform SSL handshake
-        SSL *ssl = NULL;
-
-        if (ssl != NULL)
+        // Create SSL structure for this connection and perform SSL handshake
+        SSL *ssl = SSL_new(ssl_ctx);
+        if (!ssl || SSL_set_fd(ssl, client_socket) != 1 || SSL_accept(ssl) != 1)
         {
-            handle_request(ssl);
+            if (ssl)
+                SSL_free(ssl);
+            close(client_socket);
+            continue;
         }
 
-        // TODO: Clean up SSL connection
+        handle_request(ssl);
+
+        // Clean up SSL connection
+        SSL_shutdown(ssl);
+        SSL_free(ssl);
 
         close(client_socket);
     }
 
     close(server_socket);
     // TODO: Clean up SSL context
-
+    SSL_CTX_free(ssl_ctx);
     return 0;
 }
 
