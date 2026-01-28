@@ -179,8 +179,7 @@ void handle_request(SSL *ssl)
     ssize_t bytes_read;
 
     // TODO: Read request from SSL connection
-    bytes_read = 0;
-
+    bytes_read = SSL_read(ssl, buffer, BUFFER_SIZE - 1);
     if (bytes_read <= 0)
     {
         return;
@@ -221,12 +220,13 @@ void send_local_file(SSL *ssl, const char *path)
 
     if (!file)
     {
+        // File not found response (404)
         printf("File %s not found\n", path);
         char *response = "HTTP/1.1 404 Not Found\r\n"
                          "Content-Type: text/html; charset=UTF-8\r\n\r\n"
                          "<!DOCTYPE html><html><head><title>404 Not Found</title></head>"
                          "<body><h1>404 Not Found</h1></body></html>";
-        // TODO: Send response via SSL
+        SSL_write(ssl, response, strlen(response));
 
         return;
     }
@@ -237,14 +237,14 @@ void send_local_file(SSL *ssl, const char *path)
         response = "HTTP/1.1 200 OK\r\n"
                    "Content-Type: text/html; charset=UTF-8\r\n\r\n";
     }
-    else
+    else if (strstr(path, ".jpg"))
     {
         response = "HTTP/1.1 200 OK\r\n"
                    "Content-Type: text/plain; charset=UTF-8\r\n\r\n";
     }
 
     // TODO: Send response header and file content via SSL
-
+    SSL_write(ssl, response, strlen(response));
     while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0)
     {
         // TODO: Send file data via SSL
