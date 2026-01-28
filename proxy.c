@@ -217,7 +217,7 @@ void handle_request(SSL *ssl, const char *remote_host, int remote_port)
     file_name++;
 
     char decoded_path[BUFFER_SIZE];
-    decode_url(decoded_path, file_name);
+    decode_url(file_name, decoded_path);
 
     if (strlen(decoded_path) == 0)
     {
