@@ -209,6 +209,8 @@ void handle_request(SSL *ssl)
         printf("Proxying remote file %s\n", file_name);
         proxy_remote_file(ssl, buffer);
     }
+
+    free(request);
 }
 
 // TODO: Serve local file with correct Content-Type header
